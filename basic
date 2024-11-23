@@ -1,0 +1,123 @@
+import pygame
+import math
+import random
+
+# 게임 초기화
+pygame.init()
+
+# 화면 크기 설정
+SCREEN_WIDTH = 900
+SCREEN_HEIGHT = 700
+window = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
+pygame.display.set_caption("파이썬응용_예시게임")
+
+# 색상 설정
+COLOR_WHITE = (255, 255, 255)
+COLOR_BLACK = (0, 0, 0)
+COLOR_RED = (255, 0, 0)
+COLOR_BLUE = (0, 0, 255)
+COLOR_GREEN = (0, 255, 0)
+
+# 몬스터
+class Enemy:
+    def __init__(self):
+        self.pos_x = 0
+        self.pos_y = random.randint(50, SCREEN_HEIGHT - 50)
+        self.velocity = random.randint(1, 3)
+        self.hp = 100
+
+    def update_position(self):
+        self.pos_x += self.velocity
+
+    def render(self):
+        pygame.draw.rect(window, COLOR_RED, (self.pos_x, self.pos_y, 20, 20))
+        health_bar_width = 20 * (self.hp / 100) #체력바
+        pygame.draw.rect(window, COLOR_GREEN, (self.pos_x, self.pos_y - 10, health_bar_width, 5))
+
+# 디펜스타워
+class DefenseTower:
+    def __init__(self, x, y):
+        self.center_x = x
+        self.center_y = y
+        self.attack_range = 150
+        self.attack_power = 10
+        self.reload_time = 30
+        self.current_reload = 0
+
+    def render(self):
+        pygame.draw.rect(window, COLOR_BLUE, (self.center_x - 15, self.center_y - 15, 30, 30))
+        pygame.draw.circle(window, (0, 255, 255, 64), (self.center_x, self.center_y), self.attack_range, 1)
+
+    def shoot(self, targets):
+        if self.current_reload <= 0:
+            for target in targets:
+                distance = math.hypot(self.center_x - target.pos_x, self.center_y - target.pos_y)
+                
+                if distance <= self.attack_range:
+                    target.hp -= self.attack_power
+                    self.current_reload = self.reload_time
+
+
+                    pygame.draw.line(window, COLOR_GREEN, (self.center_x, self.center_y), 
+                                     (target.pos_x + 10, target.pos_y + 10), 2)
+                    return
+        else:
+            self.current_reload -= 1
+
+# 게임 상태 변수
+enemy_list = []
+tower_list = []
+player_score = 0
+player_lives = 10
+
+# 게임 루프
+frame_clock = pygame.time.Clock()
+game_active = True
+while game_active:
+    for event in pygame.event.get():
+        if event.type == pygame.QUIT:
+            game_active = False
+        if event.type == pygame.MOUSEBUTTONDOWN:
+            mouse_x, mouse_y = pygame.mouse.get_pos()
+            tower_list.append(DefenseTower(mouse_x, mouse_y))
+
+    # 적 생성
+    if random.randint(1, 60) == 1:
+        enemy_list.append(Enemy())
+
+    # 화면 업데이트
+    window.fill(COLOR_WHITE)
+
+    # 적 이동 및 그리기
+    for enemy in enemy_list[:]:
+        enemy.update_position()
+        enemy.render()
+        if enemy.pos_x > SCREEN_WIDTH:
+            enemy_list.remove(enemy)
+            player_lives -= 1
+        elif enemy.hp <= 0:
+            enemy_list.remove(enemy)
+            player_score += 10
+
+    # 타워 업데이트 및 공격
+    for tower in tower_list:
+        tower.render()
+        tower.shoot(enemy_list)
+
+    # 상단 점수표
+    font = pygame.font.Font(None, 36)
+    score_display = font.render(f"Score: {player_score}", True, COLOR_BLACK)
+    lives_display = font.render(f"Lives: {player_lives}", True, COLOR_BLACK)
+    window.blit(score_display, (10, 10))
+    window.blit(lives_display, (10, 50))
+
+    # 화면 갱신
+    pygame.display.flip()
+    frame_clock.tick(60)
+
+    # 게임 오버
+    if player_lives <= 0:
+        game_active = False
+
+# 게임 종료
+pygame.quit()
